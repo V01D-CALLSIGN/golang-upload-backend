@@ -11,12 +11,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	// ✅ Added for ACL
 )
 
 var (
 	s3Client     *s3.Client
-	bucketName   = "my-app-file-uploads-aarush-2025" // change this to your actual bucket name
-	bucketRegion = "us-east-2"                       // change this to your bucket's region
+	bucketName   = "my-app-file-uploads-aarush-2025"
+	bucketRegion = "us-east-2"
 )
 
 func init() {
@@ -28,7 +29,18 @@ func init() {
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	// Limit file size (10 MB here)
+	// 🔧 Add CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*") // for dev; lock down later
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// 🔧 Handle preflight request
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// 🚫 Limit file size
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 
 	err := r.ParseMultipartForm(10 << 20)
@@ -56,6 +68,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = s3Client.PutObject(context.TODO(), uploadInput)
 	if err != nil {
+		log.Println("Upload failed:", err)
 		http.Error(w, "Upload failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

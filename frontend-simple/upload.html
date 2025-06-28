@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload to S3</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 1rem;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      margin: 10px 0;
+      word-break: break-all;
+    }
+    img {
+      max-width: 100%;
+      max-height: 200px;
+      display: block;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>📤 Upload a File</h2>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload</button>
+  <p id="result"></p>
+
+  <h3>📁 Uploaded Files</h3>
+  <ul id="fileList"></ul>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const result = document.getElementById("result");
+    const fileList = document.getElementById("fileList");
+
+    const uploadedFiles = JSON.parse(localStorage.getItem("uploadedFiles") || "[]");
+
+    function renderList() {
+      fileList.innerHTML = "";
+      uploadedFiles.forEach(url => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = url;
+        a.textContent = url;
+        a.target = "_blank";
+        li.appendChild(a);
+
+        if (url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+          const img = document.createElement("img");
+          img.src = url;
+          li.appendChild(img);
+        }
+
+        fileList.appendChild(li);
+      });
+    }
+
+    async function uploadFile() {
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please choose a file.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      result.textContent = "Uploading...";
+
+      try {
+        const res = await fetch("http://localhost:8080/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        const text = await res.text();
+
+        if (!res.ok) {
+          result.textContent = "Upload failed: " + text;
+          return;
+        }
+
+        const urlMatch = text.match(/https:\/\/[^\s]+/);
+        if (urlMatch) {
+          const url = urlMatch[0];
+          uploadedFiles.push(url);
+          localStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
+          renderList();
+          result.textContent = "✅ Uploaded!";
+        } else {
+          result.textContent = "Upload succeeded, but URL not found.";
+        }
+      } catch (err) {
+        result.textContent = "Upload failed: " + err.message;
+      }
+    }
+
+    renderList();
+  </script>
+</body>
+</html>
